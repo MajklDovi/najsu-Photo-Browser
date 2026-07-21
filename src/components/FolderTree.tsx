@@ -75,9 +75,10 @@ function TreeNode({ name, path, selectedPath, onSelect }: TreeNodeProps) {
 
 interface FolderTreeProps {
   onConfirm: (path: string) => void;
+  lastFolder: string | null;
 }
 
-export function FolderTree({ onConfirm }: FolderTreeProps) {
+export function FolderTree({ onConfirm, lastFolder }: FolderTreeProps) {
   const [drives, setDrives] = useState<DriveEntry[]>([]);
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -91,6 +92,14 @@ export function FolderTree({ onConfirm }: FolderTreeProps) {
   return (
     <div className="folder-tree-container">
       <h2>Choose a starting folder</h2>
+      {lastFolder && (
+        <div className="last-folder-banner">
+          <span className="last-folder-path" title={lastFolder}>
+            Last used: {lastFolder}
+          </span>
+          <button onClick={() => onConfirm(lastFolder)}>Continue browsing</button>
+        </div>
+      )}
       <div className="folder-tree">
         {loadError && <p className="tree-error">{loadError}</p>}
         <ul className="tree-root">
