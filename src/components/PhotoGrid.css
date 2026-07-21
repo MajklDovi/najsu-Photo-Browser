@@ -48,11 +48,37 @@
   padding: 0.3rem 0.4rem;
 }
 
+.photo-tile-name-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
 .photo-tile-name {
   font-size: 0.75em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
+}
+
+.raw-badge {
+  flex-shrink: 0;
+  font-size: 0.6em;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: #396cd82a;
+  color: #396cd8;
+}
+
+@media (prefers-color-scheme: dark) {
+  .raw-badge {
+    background: #6ea8ff33;
+    color: #8fb8ff;
+  }
 }
 
 .star-rating {

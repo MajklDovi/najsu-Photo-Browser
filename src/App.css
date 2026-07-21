@@ -63,6 +63,36 @@ body,
   opacity: 0.8;
 }
 
+.include-subfolders {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.9em;
+  cursor: pointer;
+}
+
+.include-subfolders input[type="checkbox"] {
+  width: auto;
+  padding: 0;
+  box-shadow: none;
+  cursor: pointer;
+}
+
+.drag-mode {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.9em;
+}
+
+.drag-mode select {
+  border-radius: 6px;
+  padding: 0.3em 0.5em;
+  font-size: 0.95em;
+  box-shadow: none;
+}
+
 .browse-status {
   padding: 0.5rem 1rem;
   margin: 0;

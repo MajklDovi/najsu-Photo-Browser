@@ -1,9 +1,11 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { FolderTree } from "./components/FolderTree";
 import { PhotoGrid } from "./components/PhotoGrid";
 import { FilterBar, type FilterState } from "./components/FilterBar";
 import { PreviewModal } from "./components/PreviewModal";
+import { SubfolderBar } from "./components/SubfolderBar";
 import { usePhotoCatalog } from "./hooks/usePhotoCatalog";
+import type { DragMode } from "./types";
 import "./App.css";
 
 const DEFAULT_FILTER: FilterState = {
@@ -13,10 +15,33 @@ const DEFAULT_FILTER: FilterState = {
   sortDesc: false,
 };
 
-function BrowseView({ folder, onBack }: { folder: string; onBack: () => void }) {
-  const { photos, progress, indexing, error, refresh, setRating } = usePhotoCatalog(folder);
+const DRAG_MODE_KEY = "najsu:dragMode";
+
+function useDragMode() {
+  const [dragMode, setDragMode] = useState<DragMode>(
+    () => (localStorage.getItem(DRAG_MODE_KEY) as DragMode | null) ?? "both",
+  );
+  function update(mode: DragMode) {
+    localStorage.setItem(DRAG_MODE_KEY, mode);
+    setDragMode(mode);
+  }
+  return [dragMode, update] as const;
+}
+
+function BrowseView({ root, onBack }: { root: string; onBack: () => void }) {
+  const [currentFolder, setCurrentFolder] = useState(root);
+  const [recursive, setRecursive] = useState(false);
+  const { photos, progress, indexing, error, refresh, setRating } = usePhotoCatalog(
+    currentFolder,
+    recursive,
+  );
   const [filter, setFilter] = useState<FilterState>(DEFAULT_FILTER);
   const [openIndex, setOpenIndex] = useState<number | null>(null);
+  const [dragMode, setDragMode] = useDragMode();
+
+  useEffect(() => {
+    setCurrentFolder(root);
+  }, [root]);
 
   const visiblePhotos = useMemo(() => {
     const needle = filter.nameFilter.trim().toLowerCase();
@@ -44,11 +69,30 @@ function BrowseView({ folder, onBack }: { folder: string; onBack: () => void }) 
     <div className="browse-view">
       <header className="browse-header">
         <button onClick={onBack}>&larr; Choose a different folder</button>
-        <span className="browse-folder-path">{folder}</span>
+        <label className="include-subfolders">
+          <input
+            type="checkbox"
+            checked={recursive}
+            onChange={(e) => setRecursive(e.currentTarget.checked)}
+          />
+          Include subfolders
+        </label>
+        <label className="drag-mode">
+          Drag &amp; drop
+          <select
+            value={dragMode}
+            onChange={(e) => setDragMode(e.currentTarget.value as DragMode)}
+          >
+            <option value="jpg">JPG only</option>
+            <option value="raw">RAW only</option>
+            <option value="both">Both</option>
+          </select>
+        </label>
         <button onClick={refresh} disabled={indexing}>
           Refresh
         </button>
       </header>
+      <SubfolderBar root={root} currentFolder={currentFolder} onNavigate={setCurrentFolder} />
       <FilterBar
         state={filter}
         onChange={setFilter}
@@ -64,7 +108,12 @@ function BrowseView({ folder, onBack }: { folder: string; onBack: () => void }) 
       {!indexing && photos.length === 0 && !error && (
         <p className="browse-status">No supported images found in this folder.</p>
       )}
-      <PhotoGrid photos={visiblePhotos} onRate={setRating} onOpen={setOpenIndex} />
+      <PhotoGrid
+        photos={visiblePhotos}
+        onRate={setRating}
+        onOpen={setOpenIndex}
+        dragMode={dragMode}
+      />
 
       {openIndex !== null && (
         <PreviewModal
@@ -75,6 +124,7 @@ function BrowseView({ folder, onBack }: { folder: string; onBack: () => void }) 
             if (next >= 0 && next < visiblePhotos.length) setOpenIndex(next);
           }}
           onRate={setRating}
+          dragMode={dragMode}
         />
       )}
     </div>
@@ -104,7 +154,7 @@ function App() {
   }
 
   return (
-    <BrowseView folder={confirmedFolder} onBack={() => setConfirmedFolder(null)} />
+    <BrowseView root={confirmedFolder} onBack={() => setConfirmedFolder(null)} />
   );
 }
 

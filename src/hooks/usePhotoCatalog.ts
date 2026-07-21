@@ -3,7 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type { IndexProgress, PhotoRecord } from "../types";
 
-export function usePhotoCatalog(folder: string) {
+export function usePhotoCatalog(folder: string, recursive: boolean) {
   const [photos, setPhotos] = useState<PhotoRecord[]>([]);
   const [progress, setProgress] = useState<IndexProgress | null>(null);
   const [indexing, setIndexing] = useState(false);
@@ -21,8 +21,8 @@ export function usePhotoCatalog(folder: string) {
   const startIndexing = useCallback(async () => {
     setIndexing(true);
     setError(null);
-    await invoke("index_folder", { folder });
-  }, [folder]);
+    await invoke("index_folder", { folder, recursive });
+  }, [folder, recursive]);
 
   const load = useCallback(async () => {
     photosByPath.current.clear();
@@ -30,15 +30,19 @@ export function usePhotoCatalog(folder: string) {
     setProgress(null);
     setError(null);
 
-    const hasCatalog = await invoke<boolean>("check_catalog", { folder });
-    if (hasCatalog) {
-      const cached = await invoke<PhotoRecord[]>("load_catalog", { folder });
-      cached.forEach((p) => photosByPath.current.set(p.path, p));
-      setPhotos(cached);
-      return;
+    // The cached catalog doesn't record whether it was built recursively, so only trust
+    // the fast path in non-recursive mode; toggling "include subfolders" always re-walks.
+    if (!recursive) {
+      const hasCatalog = await invoke<boolean>("check_catalog", { folder });
+      if (hasCatalog) {
+        const cached = await invoke<PhotoRecord[]>("load_catalog", { folder });
+        cached.forEach((p) => photosByPath.current.set(p.path, p));
+        setPhotos(cached);
+        return;
+      }
     }
     await startIndexing();
-  }, [folder, startIndexing]);
+  }, [folder, recursive, startIndexing]);
 
   const refresh = useCallback(async () => {
     await startIndexing();
@@ -51,7 +55,7 @@ export function usePhotoCatalog(folder: string) {
         applyPhoto({ ...previous, rating });
       }
       try {
-        await invoke("set_rating", { path, rating });
+        await invoke("set_rating", { path, rating, rawPath: previous?.raw_path ?? null });
       } catch (e) {
         if (previous) applyPhoto(previous);
         setError(String(e));

@@ -28,4 +28,5 @@ image = "0.25"
 walkdir = "2"
 sha2 = "0.10"
 base64 = "0.22"
+tauri-plugin-drag = "2.1.1"
 

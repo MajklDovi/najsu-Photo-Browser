@@ -74,7 +74,7 @@ pub fn read_ratings_batch(app: &AppHandle, photos: &[PathBuf]) -> HashMap<String
     }
 
     let output = Command::new(&exiftool)
-        .args(["-j", "-Rating", "-XMP:Rating"])
+        .args(["-charset", "filename=utf8", "-j", "-Rating", "-XMP:Rating"])
         .args(&sources)
         .output();
 
@@ -103,30 +103,25 @@ pub fn read_ratings_batch(app: &AppHandle, photos: &[PathBuf]) -> HashMap<String
     result
 }
 
-/// Writes a 0-5 star rating for a single photo, embedding it directly for well-supported
-/// raster formats, or into an XMP sidecar file for everything else (RAW, PNG, HEIC, ...).
-#[tauri::command]
-pub fn set_rating(app: AppHandle, path: String, rating: i32) -> Result<(), String> {
-    let rating = rating.clamp(0, 5);
-    let exiftool = exiftool_path(&app)?;
-    let photo = Path::new(&path);
+fn write_rating_for(exiftool: &Path, photo: &Path, rating: i32) -> Result<(), String> {
     let rating_arg = format!("-Rating={}", rating);
     let xmp_rating_arg = format!("-XMP:Rating={}", rating);
 
     let status = if is_embeddable(photo) {
-        Command::new(&exiftool)
-            .args(["-overwrite_original", &rating_arg, &xmp_rating_arg])
-            .arg(&path)
+        Command::new(exiftool)
+            .args(["-charset", "filename=utf8", "-overwrite_original", &rating_arg, &xmp_rating_arg])
+            .arg(photo)
             .status()
     } else {
         let sidecar = sidecar_path(photo);
         if sidecar.exists() {
-            Command::new(&exiftool)
-                .args(["-overwrite_original", &rating_arg])
+            Command::new(exiftool)
+                .args(["-charset", "filename=utf8", "-overwrite_original", &rating_arg])
                 .arg(&sidecar)
                 .status()
         } else {
-            Command::new(&exiftool)
+            Command::new(exiftool)
+                .args(["-charset", "filename=utf8"])
                 .arg("-o")
                 .arg(&sidecar)
                 .arg(&rating_arg)
@@ -139,4 +134,25 @@ pub fn set_rating(app: AppHandle, path: String, rating: i32) -> Result<(), Strin
         Ok(s) => Err(format!("exiftool exited with status {}", s)),
         Err(e) => Err(e.to_string()),
     }
+}
+
+/// Writes a 0-5 star rating for a photo, embedding it directly for well-supported raster
+/// formats, or into an XMP sidecar file for everything else (RAW, PNG, HEIC, ...). When
+/// `raw_path` is given (a paired RAW file sharing the same filename stem), its rating is
+/// written too so both files agree - see `catalog::group_into_units`.
+#[tauri::command]
+pub fn set_rating(
+    app: AppHandle,
+    path: String,
+    rating: i32,
+    raw_path: Option<String>,
+) -> Result<(), String> {
+    let rating = rating.clamp(0, 5);
+    let exiftool = exiftool_path(&app)?;
+
+    write_rating_for(&exiftool, Path::new(&path), rating)?;
+    if let Some(raw) = raw_path {
+        write_rating_for(&exiftool, Path::new(&raw), rating)?;
+    }
+    Ok(())
 }

@@ -6,6 +6,7 @@ mod fs_browser;
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_drag::init())
         .invoke_handler(tauri::generate_handler![
             fs_browser::list_drives,
             fs_browser::list_dir,

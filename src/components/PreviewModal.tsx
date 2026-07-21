@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
-import type { PhotoRecord } from "../types";
+import { startDrag } from "@crabnebula/tauri-plugin-drag";
+import { dragItemFor, type DragMode, type PhotoRecord } from "../types";
 import "./PreviewModal.css";
 
 interface PreviewModalProps {
@@ -9,9 +10,17 @@ interface PreviewModalProps {
   onClose: () => void;
   onNavigate: (index: number) => void;
   onRate: (path: string, rating: number) => void;
+  dragMode: DragMode;
 }
 
-export function PreviewModal({ photos, index, onClose, onNavigate, onRate }: PreviewModalProps) {
+export function PreviewModal({
+  photos,
+  index,
+  onClose,
+  onNavigate,
+  onRate,
+  dragMode,
+}: PreviewModalProps) {
   const photo = photos[index];
 
   useEffect(() => {
@@ -22,8 +31,15 @@ export function PreviewModal({ photos, index, onClose, onNavigate, onRate }: Pre
         onNavigate(index - 1);
       } else if (e.key === "ArrowRight") {
         onNavigate(index + 1);
-      } else if (/^[0-5]$/.test(e.key) && photo) {
-        onRate(photo.path, Number(e.key));
+      } else if (photo) {
+        // Match the physical key position (e.code), not the character it produces
+        // (e.key), so number-row rating still works on layouts where that row
+        // types accented letters (e.g. Czech QWERTZ: ě š č ř ž ý á í é) unless
+        // Shift is held.
+        const digitMatch = /^Digit([0-5])$/.exec(e.code);
+        if (digitMatch) {
+          onRate(photo.path, Number(digitMatch[1]));
+        }
       }
     }
     window.addEventListener("keydown", handleKey);
@@ -52,7 +68,11 @@ export function PreviewModal({ photos, index, onClose, onNavigate, onRate }: Pre
           className="preview-image"
           src={convertFileSrc(photo.path)}
           alt={photo.filename}
-          draggable={false}
+          draggable={true}
+          onDragStart={(e) => {
+            e.preventDefault();
+            startDrag({ item: dragItemFor(photo, dragMode), icon: photo.path });
+          }}
         />
 
         <button
@@ -66,6 +86,7 @@ export function PreviewModal({ photos, index, onClose, onNavigate, onRate }: Pre
 
         <div className="preview-footer">
           <span className="preview-filename">{photo.filename}</span>
+          {photo.raw_path && <span className="raw-badge">RAW+JPG</span>}
           <span className="preview-stars">
             {[1, 2, 3, 4, 5].map((n) => (
               <button

@@ -1,0 +1,64 @@
+.subfolder-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid #3338;
+}
+
+.breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  font-size: 0.85em;
+}
+
+.breadcrumb-item {
+  display: flex;
+  align-items: center;
+}
+
+.breadcrumb-sep {
+  margin: 0 0.35rem;
+  opacity: 0.5;
+}
+
+.breadcrumb-button {
+  border: none;
+  box-shadow: none;
+  background: transparent;
+  padding: 0.15em 0.3em;
+  font-size: 1em;
+  color: #396cd8;
+  cursor: pointer;
+}
+
+.breadcrumb-button:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+.breadcrumb-current {
+  color: inherit;
+  font-weight: 600;
+  cursor: default;
+}
+
+.subfolder-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.subfolder-chip {
+  border: 1px solid #3338;
+  box-shadow: none;
+  background: #8881;
+  padding: 0.25em 0.6em;
+  font-size: 0.8em;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.subfolder-chip:hover {
+  background: #8883;
+}

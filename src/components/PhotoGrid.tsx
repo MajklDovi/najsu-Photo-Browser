@@ -1,5 +1,6 @@
 import { Grid } from "react-window";
-import type { PhotoRecord } from "../types";
+import { startDrag } from "@crabnebula/tauri-plugin-drag";
+import { dragItemFor, type DragMode, type PhotoRecord } from "../types";
 import { useContainerSize } from "../hooks/useContainerSize";
 import "./PhotoGrid.css";
 
@@ -10,6 +11,7 @@ interface PhotoGridProps {
   photos: PhotoRecord[];
   onRate: (path: string, rating: number) => void;
   onOpen: (index: number) => void;
+  dragMode: DragMode;
 }
 
 function StarRating({
@@ -44,6 +46,7 @@ interface CellProps {
   columnCount: number;
   onRate: (path: string, rating: number) => void;
   onOpen: (index: number) => void;
+  dragMode: DragMode;
 }
 
 function Cell({
@@ -54,6 +57,7 @@ function Cell({
   columnCount,
   onRate,
   onOpen,
+  dragMode,
 }: {
   columnIndex: number;
   rowIndex: number;
@@ -71,12 +75,23 @@ function Cell({
         onDoubleClick={() => onOpen(index)}
       >
         {photo.thumbnail ? (
-          <img src={photo.thumbnail} alt={photo.filename} draggable={false} />
+          <img
+            src={photo.thumbnail}
+            alt={photo.filename}
+            draggable={true}
+            onDragStart={(e) => {
+              e.preventDefault();
+              startDrag({ item: dragItemFor(photo, dragMode), icon: photo.path });
+            }}
+          />
         ) : (
           <div className="photo-tile-placeholder">{photo.filename}</div>
         )}
         <div className="photo-tile-caption">
-          <span className="photo-tile-name">{photo.filename}</span>
+          <div className="photo-tile-name-row">
+            <span className="photo-tile-name">{photo.filename}</span>
+            {photo.raw_path && <span className="raw-badge">RAW+JPG</span>}
+          </div>
           <StarRating rating={photo.rating} onRate={(r) => onRate(photo.path, r)} />
         </div>
       </div>
@@ -84,7 +99,7 @@ function Cell({
   );
 }
 
-export function PhotoGrid({ photos, onRate, onOpen }: PhotoGridProps) {
+export function PhotoGrid({ photos, onRate, onOpen, dragMode }: PhotoGridProps) {
   const { ref, width, height } = useContainerSize<HTMLDivElement>();
   const columnCount = Math.max(1, Math.floor(width / TILE_WIDTH));
   const rowCount = Math.ceil(photos.length / columnCount);
@@ -94,7 +109,7 @@ export function PhotoGrid({ photos, onRate, onOpen }: PhotoGridProps) {
       {width > 0 && height > 0 && (
         <Grid<CellProps>
           cellComponent={Cell}
-          cellProps={{ photos, columnCount, onRate, onOpen }}
+          cellProps={{ photos, columnCount, onRate, onOpen, dragMode }}
           columnCount={columnCount}
           columnWidth={TILE_WIDTH}
           rowCount={Math.max(rowCount, 1)}
