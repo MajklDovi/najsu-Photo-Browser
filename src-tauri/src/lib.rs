@@ -1,3 +1,5 @@
+mod catalog;
+mod exiftool;
 mod fs_browser;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -7,6 +9,10 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             fs_browser::list_drives,
             fs_browser::list_dir,
+            catalog::check_catalog,
+            catalog::load_catalog,
+            catalog::index_folder,
+            exiftool::set_rating,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

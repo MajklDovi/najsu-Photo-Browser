@@ -21,13 +21,52 @@
   -webkit-text-size-adjust: 100%;
 }
 
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
 .container {
   margin: 0;
+  height: 100vh;
+  box-sizing: border-box;
   padding-top: 10vh;
   display: flex;
   flex-direction: column;
   justify-content: center;
   text-align: center;
+}
+
+.browse-view {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+.browse-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid #3338;
+}
+
+.browse-folder-path {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.85em;
+  opacity: 0.8;
+}
+
+.browse-status {
+  padding: 0.5rem 1rem;
+  margin: 0;
+  opacity: 0.8;
 }
 
 .logo {
