@@ -26,6 +26,9 @@ pub struct PhotoRecord {
     pub width: Option<u32>,
     pub height: Option<u32>,
     pub rating: i32,
+    /// True only when the file (or its XMP sidecar) carries an explicit 0-5 rating.
+    /// A missing rating is "unrated", which is different from a deliberate 0.
+    pub rated: bool,
     /// base64 data URL, e.g. "data:image/jpeg;base64,..."; None if no thumbnail could be generated
     pub thumbnail: Option<String>,
 }
@@ -41,7 +44,7 @@ struct Unit {
     raw: Option<PathBuf>,
 }
 
-fn catalog_db_path(app: &AppHandle, folder: &str) -> Result<PathBuf, String> {
+pub fn catalog_db_path(app: &AppHandle, folder: &str) -> Result<PathBuf, String> {
     let mut hasher = Sha256::new();
     hasher.update(folder.as_bytes());
     let hash = format!("{:x}", hasher.finalize());
@@ -56,9 +59,11 @@ fn catalog_db_path(app: &AppHandle, folder: &str) -> Result<PathBuf, String> {
     Ok(data_dir.join(format!("{}.db", hash)))
 }
 
-fn open_db(app: &AppHandle, folder: &str) -> Result<Connection, String> {
+pub fn open_db(app: &AppHandle, folder: &str) -> Result<Connection, String> {
     let db_path = catalog_db_path(app, folder)?;
     let conn = Connection::open(db_path).map_err(|e| e.to_string())?;
+    // Indexing, analysis and rating writes use separate connections; wait instead of failing.
+    let _ = conn.busy_timeout(std::time::Duration::from_secs(10));
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS photos (
             path TEXT PRIMARY KEY,
@@ -68,6 +73,7 @@ fn open_db(app: &AppHandle, folder: &str) -> Result<Connection, String> {
             width INTEGER,
             height INTEGER,
             rating INTEGER NOT NULL DEFAULT 0,
+            rated INTEGER NOT NULL DEFAULT 0,
             thumbnail BLOB,
             indexed_at INTEGER NOT NULL
         );",
@@ -75,6 +81,12 @@ fn open_db(app: &AppHandle, folder: &str) -> Result<Connection, String> {
     .map_err(|e| e.to_string())?;
     // Older catalogs created before RAW+JPEG pairing won't have this column yet.
     let _ = conn.execute("ALTER TABLE photos ADD COLUMN raw_path TEXT", []);
+    // Catalogs from before "unrated" tracking can't tell "no rating" from "rated 0".
+    // Drop their rows once so the next load re-indexes and records it properly.
+    if conn.execute("ALTER TABLE photos ADD COLUMN rated INTEGER NOT NULL DEFAULT 0", []).is_ok() {
+        let _ = conn.execute("DELETE FROM photos", []);
+    }
+    crate::analysis::init_schema(&conn).map_err(|e| e.to_string())?;
     Ok(conn)
 }
 
@@ -88,6 +100,7 @@ fn row_to_record(row: &rusqlite::Row) -> rusqlite::Result<PhotoRecord> {
         width: row.get("width")?,
         height: row.get("height")?,
         rating: row.get("rating")?,
+        rated: row.get::<_, i64>("rated")? != 0,
         thumbnail: thumb.map(|bytes| {
             format!(
                 "data:image/jpeg;base64,{}",
@@ -287,6 +300,7 @@ fn run_index(app: &AppHandle, window: &tauri::Window, folder: &str, recursive: b
             .ok();
 
         let rating = ratings.get(&path_str).copied().unwrap_or(0);
+        let rated = ratings.contains_key(&path_str);
 
         let mut record = if existing_mtime == Some(mtime) {
             let mut stmt = conn
@@ -316,8 +330,8 @@ fn run_index(app: &AppHandle, window: &tauri::Window, folder: &str, recursive: b
                 .unwrap_or(0);
 
             conn.execute(
-                "INSERT INTO photos (path, raw_path, filename, mtime, width, height, rating, thumbnail, indexed_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+                "INSERT INTO photos (path, raw_path, filename, mtime, width, height, rating, rated, thumbnail, indexed_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
                  ON CONFLICT(path) DO UPDATE SET
                     raw_path = excluded.raw_path,
                     filename = excluded.filename,
@@ -325,6 +339,7 @@ fn run_index(app: &AppHandle, window: &tauri::Window, folder: &str, recursive: b
                     width = excluded.width,
                     height = excluded.height,
                     rating = excluded.rating,
+                    rated = excluded.rated,
                     thumbnail = excluded.thumbnail,
                     indexed_at = excluded.indexed_at",
                 rusqlite::params![
@@ -335,6 +350,7 @@ fn run_index(app: &AppHandle, window: &tauri::Window, folder: &str, recursive: b
                     width,
                     height,
                     rating,
+                    rated as i64,
                     thumb_bytes,
                     now
                 ],
@@ -349,6 +365,7 @@ fn run_index(app: &AppHandle, window: &tauri::Window, folder: &str, recursive: b
                 width,
                 height,
                 rating,
+                rated,
                 thumbnail: thumb_bytes.map(|bytes| {
                     format!(
                         "data:image/jpeg;base64,{}",
@@ -358,11 +375,12 @@ fn run_index(app: &AppHandle, window: &tauri::Window, folder: &str, recursive: b
             }
         };
 
-        if record.rating != rating {
+        if record.rating != rating || record.rated != rated {
             record.rating = rating;
+            record.rated = rated;
             conn.execute(
-                "UPDATE photos SET rating = ?1 WHERE path = ?2",
-                rusqlite::params![rating, path_str],
+                "UPDATE photos SET rating = ?1, rated = ?3 WHERE path = ?2",
+                rusqlite::params![rating, path_str, rated as i64],
             )
             .map_err(|e| e.to_string())?;
         }

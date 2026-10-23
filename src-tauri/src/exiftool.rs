@@ -37,6 +37,51 @@ pub fn exiftool_path(app: &AppHandle) -> Result<PathBuf, String> {
     ))
 }
 
+
+/// Builds an exiftool command that doesn't flash a console window on Windows.
+pub fn exiftool_command(exiftool: &Path) -> Command {
+    #[allow(unused_mut)]
+    let mut cmd = Command::new(exiftool);
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
+    }
+    cmd
+}
+
+/// Runs exiftool with `-j` over many files, splitting them into several invocations so the
+/// command line never exceeds Windows' ~32k character limit. Returns the merged JSON entries.
+pub fn run_json(exiftool: &Path, base_args: &[&str], files: &[String]) -> Vec<Value> {
+    const MAX_CMDLINE: usize = 20_000;
+    let mut out = Vec::new();
+    let mut chunk: Vec<&String> = Vec::new();
+    let mut len = 0usize;
+
+    let run = |chunk: &mut Vec<&String>, out: &mut Vec<Value>| {
+        if chunk.is_empty() {
+            return;
+        }
+        if let Ok(output) = exiftool_command(exiftool).args(base_args).args(chunk.iter()).output() {
+            if let Ok(mut parsed) = serde_json::from_slice::<Vec<Value>>(&output.stdout) {
+                out.append(&mut parsed);
+            }
+        }
+        chunk.clear();
+    };
+
+    for file in files {
+        if len + file.len() + 3 > MAX_CMDLINE {
+            run(&mut chunk, &mut out);
+            len = 0;
+        }
+        len += file.len() + 3;
+        chunk.push(file);
+    }
+    run(&mut chunk, &mut out);
+    out
+}
+
 fn sidecar_path(photo: &Path) -> PathBuf {
     photo.with_extension("xmp")
 }
@@ -73,17 +118,11 @@ pub fn read_ratings_batch(app: &AppHandle, photos: &[PathBuf]) -> HashMap<String
         sources.push(source_str);
     }
 
-    let output = Command::new(&exiftool)
-        .args(["-charset", "filename=utf8", "-j", "-Rating", "-XMP:Rating"])
-        .args(&sources)
-        .output();
-
-    let Ok(output) = output else {
-        return result;
-    };
-    let Ok(parsed) = serde_json::from_slice::<Vec<Value>>(&output.stdout) else {
-        return result;
-    };
+    let parsed = run_json(
+        &exiftool,
+        &["-charset", "filename=utf8", "-j", "-Rating", "-XMP:Rating"],
+        &sources,
+    );
 
     for entry in parsed {
         let Some(source_file) = entry.get("SourceFile").and_then(|v| v.as_str()) else {
@@ -92,12 +131,14 @@ pub fn read_ratings_batch(app: &AppHandle, photos: &[PathBuf]) -> HashMap<String
         let Some(photo_path) = src_to_photo.get(source_file) else {
             continue;
         };
-        let rating = entry
+        // Only files that actually carry a rating get an entry: absent means "unrated".
+        if let Some(rating) = entry
             .get("Rating")
             .or_else(|| entry.get("XMP:Rating"))
             .and_then(|v| v.as_i64())
-            .unwrap_or(0) as i32;
-        result.insert(photo_path.clone(), rating);
+        {
+            result.insert(photo_path.clone(), rating as i32);
+        }
     }
 
     result
@@ -108,19 +149,19 @@ fn write_rating_for(exiftool: &Path, photo: &Path, rating: i32) -> Result<(), St
     let xmp_rating_arg = format!("-XMP:Rating={}", rating);
 
     let status = if is_embeddable(photo) {
-        Command::new(exiftool)
+        exiftool_command(exiftool)
             .args(["-charset", "filename=utf8", "-overwrite_original", &rating_arg, &xmp_rating_arg])
             .arg(photo)
             .status()
     } else {
         let sidecar = sidecar_path(photo);
         if sidecar.exists() {
-            Command::new(exiftool)
+            exiftool_command(exiftool)
                 .args(["-charset", "filename=utf8", "-overwrite_original", &rating_arg])
                 .arg(&sidecar)
                 .status()
         } else {
-            Command::new(exiftool)
+            exiftool_command(exiftool)
                 .args(["-charset", "filename=utf8"])
                 .arg("-o")
                 .arg(&sidecar)
@@ -143,16 +184,28 @@ fn write_rating_for(exiftool: &Path, photo: &Path, rating: i32) -> Result<(), St
 #[tauri::command]
 pub fn set_rating(
     app: AppHandle,
+    folder: String,
     path: String,
     rating: i32,
     raw_path: Option<String>,
 ) -> Result<(), String> {
     let rating = rating.clamp(0, 5);
-    let exiftool = exiftool_path(&app)?;
+    write_rating_files(&app, &path, raw_path.as_deref(), rating)?;
+    crate::analysis::record_rating(&app, &folder, &path, rating);
+    Ok(())
+}
 
-    write_rating_for(&exiftool, Path::new(&path), rating)?;
+/// Writes the rating to the photo (and its paired RAW) without touching the catalogue.
+pub fn write_rating_files(
+    app: &AppHandle,
+    path: &str,
+    raw_path: Option<&str>,
+    rating: i32,
+) -> Result<(), String> {
+    let exiftool = exiftool_path(app)?;
+    write_rating_for(&exiftool, Path::new(path), rating)?;
     if let Some(raw) = raw_path {
-        write_rating_for(&exiftool, Path::new(&raw), rating)?;
+        write_rating_for(&exiftool, Path::new(raw), rating)?;
     }
     Ok(())
 }

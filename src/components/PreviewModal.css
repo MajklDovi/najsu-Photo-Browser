@@ -119,3 +119,26 @@
   font-size: 0.85em;
   opacity: 0.8;
 }
+
+.preview-auto {
+  font-size: 0.8em;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #7b4fd655;
+  white-space: nowrap;
+}
+
+.preview-detach {
+  font-size: 0.75em;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid #ffffff55;
+  box-shadow: none;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+}
+
+.preview-detach:hover {
+  background: #b3261e;
+}

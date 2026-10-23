@@ -2,6 +2,8 @@ import { useEffect } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { startDrag } from "@crabnebula/tauri-plugin-drag";
 import { dragItemFor, type DragMode, type PhotoRecord } from "../types";
+import type { AutoScore } from "../autoScore";
+import { autoTitle, seriesTitle } from "./PhotoGrid";
 import "./PreviewModal.css";
 
 interface PreviewModalProps {
@@ -11,6 +13,8 @@ interface PreviewModalProps {
   onNavigate: (index: number) => void;
   onRate: (path: string, rating: number) => void;
   dragMode: DragMode;
+  scores: Map<string, AutoScore>;
+  onDetach: (path: string) => void;
 }
 
 export function PreviewModal({
@@ -20,6 +24,8 @@ export function PreviewModal({
   onNavigate,
   onRate,
   dragMode,
+  scores,
+  onDetach,
 }: PreviewModalProps) {
   const photo = photos[index];
 
@@ -47,6 +53,7 @@ export function PreviewModal({
   }, [index, photo, onClose, onNavigate, onRate]);
 
   if (!photo) return null;
+  const auto = photo.rated ? undefined : scores.get(photo.path);
 
   return (
     <div className="preview-overlay" onClick={onClose}>
@@ -100,6 +107,24 @@ export function PreviewModal({
               </button>
             ))}
           </span>
+          {auto && (
+            <span className="preview-auto" title={autoTitle(auto) + (auto.seriesSize > 1 ? "\n\n" + seriesTitle(auto) : "")}>
+              Auto {auto.score.toFixed(1)}
+              {auto.seriesSize > 1 && ` · ${auto.seriesBest ? "best of" : `#${auto.seriesPos} of`} ${auto.seriesSize}`}
+              {auto.cappedBy && ` · ${auto.cappedBy}`}
+              {auto.seriesByAi && " · 🧠"}
+              {auto.seriesVetoed && " · ⚠"}
+            </span>
+          )}
+          {auto && auto.seriesSize > 1 && (
+            <button
+              className="preview-detach"
+              title="Take this photo out of its stack (view only, no files are changed)"
+              onClick={() => onDetach(photo.path)}
+            >
+              Remove from stack
+            </button>
+          )}
           <span className="preview-position">
             {index + 1} / {photos.length}
           </span>

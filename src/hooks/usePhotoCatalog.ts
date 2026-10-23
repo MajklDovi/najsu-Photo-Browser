@@ -48,20 +48,33 @@ export function usePhotoCatalog(folder: string, recursive: boolean) {
     await startIndexing();
   }, [startIndexing]);
 
+  // Re-read the catalogue without touching the filesystem (e.g. after ratings were written).
+  const reload = useCallback(async () => {
+    const cached = await invoke<PhotoRecord[]>("load_catalog", { folder });
+    photosByPath.current.clear();
+    cached.forEach((p) => photosByPath.current.set(p.path, p));
+    setPhotos(cached);
+  }, [folder]);
+
   const setRating = useCallback(
     async (path: string, rating: number) => {
       const previous = photosByPath.current.get(path);
       if (previous) {
-        applyPhoto({ ...previous, rating });
+        applyPhoto({ ...previous, rating, rated: true });
       }
       try {
-        await invoke("set_rating", { path, rating, rawPath: previous?.raw_path ?? null });
+        await invoke("set_rating", {
+          folder,
+          path,
+          rating,
+          rawPath: previous?.raw_path ?? null,
+        });
       } catch (e) {
         if (previous) applyPhoto(previous);
         setError(String(e));
       }
     },
-    [applyPhoto],
+    [applyPhoto, folder],
   );
 
   useEffect(() => {
@@ -92,5 +105,5 @@ export function usePhotoCatalog(folder: string, recursive: boolean) {
     };
   }, [applyPhoto]);
 
-  return { photos, progress, indexing, error, refresh, setRating };
+  return { photos, progress, indexing, error, refresh, reload, setRating };
 }

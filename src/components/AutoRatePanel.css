@@ -1,0 +1,73 @@
+.auto-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid #3338;
+}
+
+.auto-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.auto-icon {
+  padding: 0.4em 0.7em;
+}
+
+.auto-status {
+  font-size: 0.85em;
+  opacity: 0.85;
+}
+
+.auto-apply {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+.auto-warning {
+  font-size: 0.85em;
+  color: #c77d00;
+}
+
+.auto-summary {
+  font-size: 0.8em;
+  opacity: 0.85;
+}
+
+.auto-dist {
+  margin-right: 0.7rem;
+}
+
+.auto-settings {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0.4rem 1.2rem;
+  padding: 0.6rem 0.8rem;
+  border-radius: 8px;
+  background: #8881;
+  font-size: 0.85em;
+}
+
+.auto-settings label {
+  display: grid;
+  grid-template-columns: 9em 1fr 3em;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.auto-settings input[type="range"] {
+  padding: 0;
+  box-shadow: none;
+}
+
+.auto-hint {
+  grid-column: 1 / -1;
+  margin: 0;
+  opacity: 0.7;
+}

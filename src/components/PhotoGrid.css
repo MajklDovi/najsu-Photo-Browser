@@ -10,6 +10,7 @@
 }
 
 .photo-tile {
+  position: relative;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -103,4 +104,88 @@
 
 .star-filled {
   color: #f5a623;
+}
+
+.auto-badges {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.auto-badge,
+.series-badge {
+  font-size: 0.62em;
+  font-weight: 600;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: #8883;
+}
+
+.auto-badge {
+  background: #7b4fd633;
+  color: #7b4fd6;
+}
+
+.series-badge.series-best {
+  background: #2e9f5b33;
+  color: #2e9f5b;
+}
+
+@media (prefers-color-scheme: dark) {
+  .auto-badge {
+    color: #b9a0ff;
+  }
+  .series-badge.series-best {
+    color: #6fd39a;
+  }
+}
+
+/* Stacks: a collapsed series looks like a pile of cards, an expanded one is outlined. */
+.photo-tile.stack-collapsed {
+  box-shadow:
+    3px 3px 0 -1px var(--stack-edge, #8886),
+    6px 6px 0 -2px var(--stack-edge, #8886);
+  margin: 0 6px 6px 0;
+}
+
+.photo-tile.in-stack:not(.stack-collapsed) {
+  border-color: #2e9f5b;
+}
+
+.photo-tile.stack-cover {
+  border-width: 2px;
+}
+
+.stack-controls {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  right: 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  pointer-events: none;
+}
+
+.stack-controls button {
+  pointer-events: auto;
+  font-size: 0.65em;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: none;
+  box-shadow: none;
+  background: #000000b3;
+  color: #fff;
+  cursor: pointer;
+}
+
+.stack-controls button:hover {
+  background: #000000e6;
+}
+
+.stack-controls .stack-remove:hover {
+  background: #b3261e;
 }

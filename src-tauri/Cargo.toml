@@ -29,4 +29,13 @@ walkdir = "2"
 sha2 = "0.10"
 base64 = "0.22"
 tauri-plugin-drag = "2.1.1"
+rayon = "1"
+ureq = { version = "2", default-features = false, features = ["json"] }
 
+
+# Image analysis decodes full-size photos; unoptimized dev builds make that unusably slow.
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3

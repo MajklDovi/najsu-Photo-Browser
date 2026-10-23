@@ -1,3 +1,5 @@
+mod ai;
+mod analysis;
 mod catalog;
 mod exiftool;
 mod fs_browser;
@@ -14,6 +16,14 @@ pub fn run() {
             catalog::load_catalog,
             catalog::index_folder,
             exiftool::set_rating,
+            analysis::analyze_folder,
+            analysis::load_analysis,
+            analysis::apply_auto_ratings,
+            ai::ai_check,
+            ai::ai_review,
+            ai::ai_cancel,
+            ai::ai_rank_series,
+            ai::load_series_ai,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

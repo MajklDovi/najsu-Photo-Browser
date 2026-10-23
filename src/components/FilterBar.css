@@ -40,3 +40,12 @@
   opacity: 0.7;
   white-space: nowrap;
 }
+
+.filter-label input[type="number"] {
+  width: 4.5em;
+  border-radius: 6px;
+  border: 1px solid #3338;
+  padding: 0.3em 0.5em;
+  font-size: 1em;
+  box-shadow: none;
+}

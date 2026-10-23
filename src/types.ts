@@ -17,6 +17,8 @@ export interface PhotoRecord {
   width: number | null;
   height: number | null;
   rating: number;
+  // True only when the file carries an explicit 0-5 rating; false means "never rated".
+  rated: boolean;
   thumbnail: string | null;
 }
 
@@ -38,4 +40,41 @@ export function dragItemFor(photo: PhotoRecord, mode: DragMode): string[] {
     default:
       return [photo.path];
   }
+}
+
+// Raw local-analysis result for one photo (each category scored 0-5).
+export interface AnalysisRecord {
+  path: string;
+  sharpness: number;
+  shake: number;
+  exposure: number;
+  noise: number;
+  // null when the photo has no clear horizon or vertical lines to measure
+  horizon: number | null;
+  horizon_deg: number | null;
+  series_id: string | null;
+  // Local AI review (null until the photo has been reviewed)
+  ai: AiResult | null;
+}
+
+export interface AiResult {
+  model: string;
+  composition: number;
+  subject: number;
+  // null when nobody is visible in the photo
+  people: number | null;
+  impact: number;
+  summary: string;
+}
+
+// The local AI's side-by-side verdict on one series: frame paths best first.
+export interface SeriesAi {
+  series_id: string;
+  ranking: string[];
+  // Points per frame, aligned with `ranking`. Equal points mean the model had no clear winner.
+  points: number[];
+  reason: string;
+  model: string;
+  // 1 = one ranking pass, 2 = also re-asked with the frames in reverse order
+  passes: number;
 }
